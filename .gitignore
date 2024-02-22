@@ -1,0 +1,7 @@
+.env
+.DS_Store
+.devcontainer
+notes.txt
+data.csv
+schema.json
+node_modules

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/header'); %>
+</head>
+<body class="container">
+
+    <main>
+      Queried Successfully!<br>
+      <div class="section_header">Token</div>
+      </div class="token_results"><%= (token) ? token : '' %></div>
+
+      <div class="section_header">Results</div>
+      <div class="container">
+        <table class="table table-primary table-hover">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">First Name</th>
+              <th scope="col">Last Name</th>
+              <th scope="col">Email</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (var i = 0; i < results.length; i++) { %>
+            <tr>
+              <td scope="row"><%= results[i].unique_id %></td>
+              <td scope="row"><%= results[i].firstname %></td>
+              <td scope="row"><%= results[i].lastname %></td>
+              <td scope="row"><%= results[i].email %></td>
+            </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <a href='/logout'>
+        <button>Clear Session</button>
+     </a>
+    </main>
+
+    <footer>
+    <%- include('../partials/footer'); %>
+    </footer>
+
+</body>
+</html>
