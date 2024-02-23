@@ -6,6 +6,11 @@ This will setup a simple web application which will prompt a user to log in and 
 ## Google Disclaimer
 This is not an officially supported Google product
 
+## Resulting Demo
+![Demo of OAuth calling BigQuery with User Credentials](./images/demo.gif)
+
+
+
 ## Setup Environment
 ```BASH
 #Setup Environment variables
