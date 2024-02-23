@@ -121,6 +121,17 @@ async function queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID)
   });
 }
 
+app.get('/oauth/callback', async (req, res) => {
+  //console.log('Full OAuth Callback URL ' + req.url)
+  let q = url.parse(req.url, true).query;
+  let { tokens } = await oauth2Client.getToken(q.code);
+  oauth2Client.setCredentials(tokens);
+  //console.log("All Tokens Server-side: " + JSON.stringify(tokens))
+  //console.log("Access Token Server-side: " + tokens.access_token)
+  req.session.accessToken = tokens.access_token; 
+  res.redirect('/results');
+});
+
 // Route to clear session
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
