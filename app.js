@@ -6,6 +6,7 @@ const {BigQuery} = require('@google-cloud/bigquery');
 const { google } = require('googleapis');
 const url = require('url');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const { GoogleGenerativeAI,HarmCategory,HarmBlockThreshold } = require("@google/generative-ai");
 
 require('dotenv').config()
 
@@ -17,7 +18,6 @@ app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 app.use(session({secret: process.env.SESSION_SECRET, resave: true, saveUninitialized: true}));
-
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.CLIENT_ID,
@@ -49,30 +49,40 @@ function transformResponse(response) {
 
 app.get('/',
   function(req, res) {
-    res.render('pages/index', {auth_url: authorizationUrl});
+    if ( typeof req.session.accessToken !== 'undefined' && req.session.accessToken ) {
+      res.render('pages/index', {auth_url: ""});
+    } else {
+      res.render('pages/index', {auth_url: authorizationUrl});
+    }
+    
   }
 );
 
-app.get('/results',
+app.post('/results',
   async function(req, res) {
-    const ACCESS_TOKEN = req.session.accessToken;
-    console.log('ACCESS_TOKEN:' + ACCESS_TOKEN)
+
+    const sql_command = req.body.command;
+    let ACCESS_TOKEN;
+    if (req.session.accessToken) {
+      ACCESS_TOKEN = req.session.accessToken;
+    } else {
+      res.render('pages/index', {auth_url: authorizationUrl});
+    }
 
     const DATASET_ID = process.env.DATASET_ID
     const PROJECT_ID = process.env.PROJECT_ID
     const TABLE_ID = process.env.TABLE_ID
+    
+    const rows = await queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command)
+    //const rows_sdk = await queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) 
 
-    const rows = await queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID)
-    //const rows_sdk = await queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID) 
-
-    console.log('Returned Rows: ' + JSON.stringify(rows))
-    //console.log('Returned Rows_sdk: ' + JSON.stringify(rows_sdk))
-    res.render('pages/results', {token: ACCESS_TOKEN, results: rows });
+    req.session.results = rows; 
+    res.render('partials/results', {token: ACCESS_TOKEN, results: rows});
   }
 );
 
-async function queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID) {
-  const query = `SELECT unique_id, firstname, lastname, email FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\``;
+async function queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) {
+  const query = sql_command
   const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
   const options = {
     method: 'POST',
@@ -97,9 +107,9 @@ async function queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID
   }
 }
 
-async function queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID) {
-  const query = `SELECT unique_id, firstname, lastname, email FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\``;
-  
+async function queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) {
+  const query = sql_command
+
   const bigqueryClient = new BigQuery({
   projectId: `${PROJECT_ID}`});
 
@@ -111,25 +121,65 @@ async function queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID)
           'Authorization': `Bearer ${ACCESS_TOKEN}`,
       }
   };
-  console.log(JSON.stringify(options))
 
   const [rows] = await bigqueryClient.query(options);
 
-  console.log('Query Results:');
-  rows.forEach(row => {
-    console.log(`row: ${row}`);
-  });
 }
 
+app.post('/chat', async (req, res) => {
+
+  const MODEL_NAME = "gemini-1.0-pro";
+  const API_KEY = process.env.API_KEY
+  
+  const genAI = new GoogleGenerativeAI(API_KEY);
+  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+  const generationConfig = {
+    temperature: 0.1,
+    maxOutputTokens: 512,
+  };
+
+  const safetySettings = [
+    {
+      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+    {
+      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+    {
+      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+    {
+      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    },
+  ];
+
+  const chat = model.startChat({
+    generationConfig,
+    safetySettings,
+    history: [
+    ],
+  });
+  const user_message = req.body.message;
+  const baseline = `You're a model helping people with SQL queries. If your response contains SQL, you must limit your SQL responses to always \
+    return the fields unique_id, firstname, lastname, and email coming from the table '${process.env.PROJECT_ID}.${process.env.DATASET_ID}.${process.env.TABLE_ID}' There are no other fields \
+    to add to your SQL query. All SQL queries should be wrapped in SQL markdown language. You can also answer questions related to the \
+    Human Resource (HR) operations `
+  const result = await chat.sendMessage(baseline + user_message);
+  const response = result.response;
+  res.send(response.text())
+})
+
 app.get('/oauth/callback', async (req, res) => {
-  //console.log('Full OAuth Callback URL ' + req.url)
   let q = url.parse(req.url, true).query;
   let { tokens } = await oauth2Client.getToken(q.code);
   oauth2Client.setCredentials(tokens);
-  //console.log("All Tokens Server-side: " + JSON.stringify(tokens))
-  //console.log("Access Token Server-side: " + tokens.access_token)
   req.session.accessToken = tokens.access_token; 
-  res.redirect('/results');
+  res.redirect('/');
 });
 
 // Route to clear session
@@ -138,6 +188,7 @@ app.get('/logout', (req, res) => {
     if (err) {
       res.status(500).send("Error clearing session");
     } else {
+      console.log('Cleared session')
       res.redirect('/');
     }
   }); 

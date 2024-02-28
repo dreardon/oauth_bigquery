@@ -9,8 +9,6 @@ This is not an officially supported Google product
 ## Resulting Demo
 ![Demo of OAuth calling BigQuery with User Credentials](./images/demo.gif)
 
-
-
 ## Setup Environment
 ```BASH
 #Setup Environment variables
@@ -117,17 +115,18 @@ export SERVICE_NAME=oauthexample
 gcloud run deploy $SERVICE_NAME \
    --source . \
    --region $REGION \
-   --allow-unauthenticated
+   --allow-unauthenticated \
+   --set-env-vars "SESSION_SECRET=[NODEJS_SECRET]" \
+   --set-env-vars "CLIENT_SECRET=[OAUTH_CLIENT_SECRET]" \
+   --set-env-vars "CLIENT_ID=[OAUTH_CLIENT_ID]" \
+   --set-env-vars "DATASET_ID=sample_data" \
+   --set-env-vars "PROJECT_ID=[PROJECT_ID]" \
+   --set-env-vars "TABLE_ID=names" \
+   --set-env-vars "API_KEY=API_KEY=[API_KEY]"
 
 DEPLOYMENT_URL=$(gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(status.url)')
 
 gcloud run services update $SERVICE_NAME \
    --region $REGION \
-   --update-env-vars "SESSION_SECRET=[NODEJS_SECRET]" \
-   --update-env-vars "CLIENT_SECRET=[OAUTH_CLIENT_SECRET]" \
-   --update-env-vars "CLIENT_ID=[OAUTH_CLIENT_ID]" \
-   --update-env-vars "DATASET_ID=sample_data" \
-   --update-env-vars "PROJECT_ID=[PROJECT_ID]" \
-   --update-env-vars "TABLE_ID=names" \
    --update-env-vars "CALLBACK_URL=$DEPLOYMENT_URL/oauth/callback"
 ```

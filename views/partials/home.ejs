@@ -1,0 +1,13 @@
+   <div class="center-panel">
+      <% if(locals.auth_url){ %>
+        <span class="not-auth">Not Authenticated</span>, Access Token Not in Server Session!
+        <a href=<%= (auth_url) %>>  <button>Execute Authorization</button>
+        </a>
+        <br />
+        <div class="section_header">Full Authorization URL Returned</div>
+        <div class="url_results"><pre><%= (auth_url) ? auth_url : '' %> </pre></div>
+      <% } else { %>
+        <span class="auth">OAuth Authenticated</span>, Access Token in Server Session!
+      <% } %>
+    </div>
+    <div id="results"></div>

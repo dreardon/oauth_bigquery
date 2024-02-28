@@ -4,22 +4,30 @@
   <%- include('../partials/header'); %>
 </head>
 <body class="container">
+<main>
+  <div class="row">
 
-    <main>
-      <a href=<%= (auth_url) %>>
-        <button>Execute Authorization</button>
-     </a>
-     <br />
-      <div class="section_header">Full Authorization URL Returned</div>
-      <div class="token_results"><%= (auth_url) ? auth_url : '' %>  </div>
+    <div class="col-10">
+        <%- include('../partials/home'); %>
+    </div>
 
+
+    <div class="col-2">
       <a href='/logout'>
         <button>Clear Session</button>
-     </a>
-    </main>
+      </a>
+      <%- include('../partials/chat'); %>
+    </div>
+  </div>
+ 
+  </main>
     <footer>
     <%- include('../partials/footer'); %>
     </footer>
 
+    <script type='text/javascript' src='/js/main.js' defer></script>
+
 </body>
+
+
 </html>
