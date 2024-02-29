@@ -7,21 +7,20 @@ Queried Successfully!<br />
   <table class="table table-primary table-hover">
     <thead>
       <tr>
-        <th scope="col">ID</th>
-        <th scope="col">First Name</th>
-        <th scope="col">Last Name</th>
-        <th scope="col">Email</th>
+          <% for (let key in results[0]) { %>
+              <th scope="col"><%= key %></th>
+          <% } %>
       </tr>
     </thead>
+
     <tbody>
-      <% for (var i = 0; i < results.length; i++) { %>
-      <tr>
-        <td scope="row"><%= results[i].unique_id %></td>
-        <td scope="row"><%= results[i].firstname %></td>
-        <td scope="row"><%= results[i].lastname %></td>
-        <td scope="row"><%= results[i].email %></td>
-      </tr>
-      <% } %>
+      <% results.forEach(function(row) { %>
+          <tr>
+              <% for (let key in row) { %>
+                  <td scope="row"><%= row[key] %></td>
+              <% } %>
+          </tr>
+      <% }); %>
     </tbody>
   </table>
 </div>

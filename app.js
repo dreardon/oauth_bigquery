@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const {BigQuery} = require('@google-cloud/bigquery');
+const {OAuth2Client} = require('google-auth-library');
 const { google } = require('googleapis');
 const url = require('url');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
@@ -25,7 +26,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.CALLBACK_URL,
 );
 
-const scopes = 'https://www.googleapis.com/auth/bigquery.readonly'
+const scopes = 'https://www.googleapis.com/auth/bigquery'
 
 const authorizationUrl = oauth2Client.generateAuthUrl({
   access_type: 'offline',
@@ -33,19 +34,6 @@ const authorizationUrl = oauth2Client.generateAuthUrl({
   include_granted_scopes: true,
   prompt: 'consent',
 });
-
-
-function transformResponse(response) {
-  const fieldNames = ['unique_id', 'firstname', 'lastname', 'email'];
-
-  return response.map(row => {
-    const rowObject = {};
-    row.f.forEach((field, index) => {
-      rowObject[fieldNames[index]] = field.v;
-    });
-    return rowObject;
-  });
-}
 
 app.get('/',
   function(req, res) {
@@ -73,57 +61,33 @@ app.post('/results',
     const PROJECT_ID = process.env.PROJECT_ID
     const TABLE_ID = process.env.TABLE_ID
     
-    const rows = await queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command)
-    //const rows_sdk = await queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) 
+    const rows = await queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) 
 
     req.session.results = rows; 
     res.render('partials/results', {token: ACCESS_TOKEN, results: rows});
   }
 );
 
-async function queryBigQueryWithREST(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) {
-  const query = sql_command
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
-  const options = {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${ACCESS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      query: query,
-      location: 'US',
-      useLegacySql: false
-    })
-  };
-
-  try {
-    const response = await fetch(url, options);
-    const data = await response.json();
-    return transformResponse(data.rows) 
-  } catch (error) {
-      console.error('Error running query:', error);
-    throw error;
-  }
-}
-
 async function queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,sql_command) {
   const query = sql_command
 
-  const bigqueryClient = new BigQuery({
-  projectId: `${PROJECT_ID}`});
+  const authClient = new OAuth2Client({
+    credentials: {
+      access_token: ACCESS_TOKEN
+    }
+  });
+
+  const bigqueryClient = new BigQuery({authClient});
 
   const options = {
       query: query,
       location: 'US',
       useLegacySql: false,
-      headers: {
-          'Authorization': `Bearer ${ACCESS_TOKEN}`,
-      }
   };
 
   const [rows] = await bigqueryClient.query(options);
-
+  console.log('rows:' + JSON.stringify(rows))
+  return rows 
 }
 
 app.post('/chat', async (req, res) => {
@@ -176,9 +140,13 @@ app.post('/chat', async (req, res) => {
 
 app.get('/oauth/callback', async (req, res) => {
   let q = url.parse(req.url, true).query;
-  let { tokens } = await oauth2Client.getToken(q.code);
-  oauth2Client.setCredentials(tokens);
-  req.session.accessToken = tokens.access_token; 
+  try {
+    let { tokens } = await oauth2Client.getToken(q.code);
+    oauth2Client.setCredentials(tokens);
+    req.session.accessToken = tokens.access_token; 
+  } catch (e) {
+    console.log("Error: " + e)
+  }
   res.redirect('/');
 });
 
