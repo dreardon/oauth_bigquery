@@ -6,8 +6,7 @@ const {BigQuery} = require('@google-cloud/bigquery');
 const {OAuth2Client} = require('google-auth-library');
 const { google } = require('googleapis');
 const url = require('url');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const { GoogleGenerativeAI,HarmCategory,HarmBlockThreshold } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 
 require('dotenv').config()
 
@@ -92,50 +91,33 @@ async function queryBigQueryWithSDK(ACCESS_TOKEN,DATASET_ID,PROJECT_ID,TABLE_ID,
 
 app.post('/chat', async (req, res) => {
 
-  const MODEL_NAME = "gemini-1.0-pro";
+  const MODEL_NAME = "gemini-2.0-flash";
   const API_KEY = process.env.API_KEY
   
-  const genAI = new GoogleGenerativeAI(API_KEY);
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const ai = new GoogleGenAI({apiKey: API_KEY});
+  const chat = ai.chats.create({
+    model: MODEL_NAME,
+    config: {
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_ONLY_HIGH",
+          },
+        ],
+      }
+  });  
 
-  const generationConfig = {
-    temperature: 0.1,
-    maxOutputTokens: 512,
-  };
-
-  const safetySettings = [
-    {
-      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-  ];
-
-  const chat = model.startChat({
-    generationConfig,
-    safetySettings,
-    history: [
-    ],
-  });
   const user_message = req.body.message;
   const baseline = `You're a model helping people with SQL queries. If your response contains SQL, you must limit your SQL responses to always \
     return the fields unique_id, firstname, lastname, and email coming from the table '${process.env.PROJECT_ID}.${process.env.DATASET_ID}.${process.env.TABLE_ID}' There are no other fields \
     to add to your SQL query. All SQL queries should be wrapped in SQL markdown language. You can also answer questions related to the \
     Human Resource (HR) operations `
-  const result = await chat.sendMessage(baseline + user_message);
-  const response = result.response;
-  res.send(response.text())
+
+  const result = await chat.sendMessage({
+    message: baseline + user_message,
+  });    
+  const response = result.text;
+  res.send(response)
 })
 
 app.get('/oauth/callback', async (req, res) => {

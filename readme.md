@@ -122,7 +122,7 @@ gcloud run deploy $SERVICE_NAME \
    --set-env-vars "DATASET_ID=sample_data" \
    --set-env-vars "PROJECT_ID=[PROJECT_ID]" \
    --set-env-vars "TABLE_ID=names" \
-   --set-env-vars "API_KEY=API_KEY=[API_KEY]"
+   --set-env-vars "API_KEY=[API_KEY]"
 
 DEPLOYMENT_URL=$(gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(status.url)')
 

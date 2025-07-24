@@ -4,7 +4,7 @@
   "description": "An example web application that leverages oauth to query BigQuery.",
   "dependencies": {
     "@google-cloud/bigquery": "^7.4.0",
-    "@google/generative-ai": "^0.2.1",
+    "@google/genai": "^1.11.0",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.0.3",
@@ -14,7 +14,6 @@
     "gaxios": "^6.3.0",
     "google-auth-library": "^9.6.3",
     "googleapis": "^133.0.0",
-    "node-fetch": "^3.3.2",
     "package.json": "^2.0.1"
   }
 }
